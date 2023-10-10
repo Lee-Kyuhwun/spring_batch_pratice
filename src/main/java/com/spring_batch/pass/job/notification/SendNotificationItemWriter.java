@@ -33,7 +33,7 @@ public class SendNotificationItemWriter implements ItemWriter<NotificationEntity
                 notificationEntity.setSentAt(LocalDateTime.now());
                 notificationRepository.save(notificationEntity);
                 count++;
-            }
+            } // 성공적이라면 db 업데이트
 
         }
         log.info("SendNotificationItemWriter - write: 수업 전 알람 {}/{}건 전송 성공", count, notificationEntities.size());

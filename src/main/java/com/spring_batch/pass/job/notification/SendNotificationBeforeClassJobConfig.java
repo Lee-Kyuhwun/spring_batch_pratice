@@ -110,15 +110,15 @@ public class SendNotificationBeforeClassJobConfig {
     @Bean
     public SynchronizedItemStreamReader<NotificationEntity> sendNotificationItemReader() {
         JpaCursorItemReader<NotificationEntity> itemReader = new JpaCursorItemReaderBuilder<NotificationEntity>()
-                .name("sendNotificationItemReader")
-                .entityManagerFactory(entityManagerFactory)
+                .name("sendNotificationItemReader") // reader의 이름을 지정합니다.
+                .entityManagerFactory(entityManagerFactory) // JpaCursorItemReader는 EntityManagerFactory를 주입받아야 합니다.
                 // 이벤트(event)가 수업 전이며, 발송 여부(sent)가 미발송인 알람이 조회 대상이 됩니다.
                 .queryString("select n from NotificationEntity n where n.event = :event and n.sent = :sent")
-                .parameterValues(Map.of("event", NotificationEvent.BEFORE_CLASS, "sent", false))
+                .parameterValues(Map.of("event", NotificationEvent.BEFORE_CLASS, "sent", false)) // 파라미터를 설정합니다.
                 .build();
 
         return new SynchronizedItemStreamReaderBuilder<NotificationEntity>()
-                .delegate(itemReader)
+                .delegate(itemReader) // delegate: SynchronizedItemStreamReader의 대상이 되는 reader를 설정합니다.
                 .build();
 
     }
