@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Setter
 @ToString
 @AllArgsConstructor
-public class AggregatedStatistics {
+public class AggregatedStatistics {  // 통계 집계를 위한 클래스
     private LocalDateTime statisticsAt; // 일 단위
     private long allCount;
     private long attendedCount;

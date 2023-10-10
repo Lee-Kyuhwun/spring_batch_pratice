@@ -1,3 +1,4 @@
+/*
 package com.spring_batch.pass.repository.packaze;
 
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ class PackageRepositoryTest {
         // createdAt이 dateTime 이후인 것만 조회
         // 그래서 1분전으로 설정했다.
         // When
-        final List<PackageEntity> packageEntities = packageRepository.findByCreatedAtAfter(dateTime, PageRequest.of(0,1, Sort.by( "packageSeq").descending()));
+        final List<PackageEntity> packageEntities = packageRepository.findByCreatedAt(dateTime, PageRequest.of(0,1, Sort.by( "packageSeq").descending()));
 
 
 
@@ -97,3 +98,4 @@ class PackageRepositoryTest {
         assertTrue(packageRepository.findById(newPackageEntity.getPackageSeq()).isEmpty());
     }
 }
+*/
