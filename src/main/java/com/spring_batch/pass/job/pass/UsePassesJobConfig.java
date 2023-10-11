@@ -8,20 +8,23 @@ import com.spring_batch.pass.repository.pass.PassEntity;
 import com.spring_batch.pass.repository.pass.PassRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.integration.async.AsyncItemProcessor;
 import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.orm.jpa.JpaTransactionManager;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -30,38 +33,42 @@ import java.util.concurrent.Future;
 public class UsePassesJobConfig {
     private final int CHUNK_SIZE = 10;
 
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
     private final EntityManagerFactory entityManagerFactory;
+    private final JobRepository jobRepository;
+    private final JpaTransactionManager transactionManager;
     private final PassRepository passRepository;
     private final BookingRepository bookingRepository;
 
-    public UsePassesJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, EntityManagerFactory entityManagerFactory, PassRepository passRepository, BookingRepository bookingRepository) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
-        this.entityManagerFactory = entityManagerFactory;
+    @Autowired
+    public UsePassesJobConfig(EntityManagerFactory entityManagerFactory1, JobRepository jobRepository,
+                              JpaTransactionManager entityManagerFactory,
+                              PassRepository passRepository,
+                              BookingRepository bookingRepository) {
+        this.entityManagerFactory = entityManagerFactory1;
+        this.jobRepository = jobRepository;
+        this.transactionManager = entityManagerFactory;
         this.passRepository = passRepository;
         this.bookingRepository = bookingRepository;
     }
 
 
     @Bean
-    public Job usePassesJob(){
-        return this.jobBuilderFactory.get("usePassesJob")
+    public Job usePassesJob() throws Exception {
+        return new JobBuilder("usePassesJob", jobRepository)
                 .start(usePassesStep())
                 .build();
     }
 
     @Bean
-    public Step usePassesStep() {
-        return this.stepBuilderFactory.get("usePassesStep")
-                .<BookingEntity, Future<BookingEntity>>chunk(CHUNK_SIZE)
+    public Step usePassesStep() throws Exception {
+        return new StepBuilder("usePassesStep", jobRepository)
+                .<BookingEntity, Future<BookingEntity>>chunk(CHUNK_SIZE, transactionManager)
                 .reader(usePassesItemReader())
-                .processor(usePassesAsyncItemProcessor())
-                .writer(usePassesAsyncItemWriter())
+                .processor(asyncItemProcessor())
+                .writer(asyncItemWriter())
                 .build();
-
     }
+
 
 
     @Bean
@@ -75,11 +82,12 @@ public class UsePassesJobConfig {
     }
 
     @Bean
-    public AsyncItemProcessor<BookingEntity , BookingEntity> usePassesAsyncItemProcessor() {
-        AsyncItemProcessor<BookingEntity, BookingEntity> asyncItemProcessor = new AsyncItemProcessor<>();
-        asyncItemProcessor.setDelegate(usePassesItemProcessor()); // 1. ItemProcessor 지정
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor()) ;// 2. TaskExecutor 지정
-        return asyncItemProcessor;
+    public AsyncItemProcessor<BookingEntity, BookingEntity> asyncItemProcessor() throws Exception {
+        AsyncItemProcessor<BookingEntity, BookingEntity> processor = new AsyncItemProcessor<>();
+        processor.setDelegate(usePassesItemProcessor());
+        processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        processor.afterPropertiesSet();
+        return processor;
     }
 
 
@@ -95,10 +103,10 @@ public class UsePassesJobConfig {
     }
 
     @Bean
-    public AsyncItemWriter<BookingEntity>usePassesAsyncItemWriter(){
-        AsyncItemWriter<BookingEntity> asyncItemWriter = new AsyncItemWriter<>();
-        asyncItemWriter.setDelegate(usePassesItemWriter()); // 1. ItemWriter 지정
-        return asyncItemWriter;
+    public AsyncItemWriter<BookingEntity> asyncItemWriter() {
+        AsyncItemWriter<BookingEntity> writer = new AsyncItemWriter<>();
+        writer.setDelegate(usePassesItemWriter()); // 이는 실제로 데이터를 데이터베이스 또는 다른 저장소에 저장하는 `ItemWriter`입니다.
+        return writer;
     }
 
     @Bean

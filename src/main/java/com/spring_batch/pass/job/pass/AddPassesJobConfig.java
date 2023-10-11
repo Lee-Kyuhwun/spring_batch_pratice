@@ -3,38 +3,44 @@ package com.spring_batch.pass.job.pass;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.orm.jpa.JpaTransactionManager;
 
 @Configuration
 public class AddPassesJobConfig {
 
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
     private final AddPassesTasklet addPassesTasklet;
+    private final JobRepository jobRepository;
+    private final JpaTransactionManager transactionManager;
 
-    public AddPassesJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, AddPassesTasklet addPassesTasklet, EntityManagerFactory entityManagerFactory) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
+    @Autowired
+    public AddPassesJobConfig(AddPassesTasklet addPassesTasklet, JpaTransactionManager transactionManager, JobRepository jobRepository) {
         this.addPassesTasklet = addPassesTasklet;
+        this.transactionManager = transactionManager;
+        this.jobRepository = jobRepository;
     }
 
 
+
+
     @Bean
-    public Job addPassesJob(){
-        return this.jobBuilderFactory.get("addPassesJob")
+    public Job addPassesJob() {
+        return new JobBuilder("addPassesJob", jobRepository)
                 .start(addPassesStep())
                 .build();
     }
 
     @Bean
-    public Step addPassesStep(){
-        return this.stepBuilderFactory.get("addPassesStep")
-                .tasklet(addPassesTasklet)
+    public Step addPassesStep() {
+        return new StepBuilder("addPassesStep", jobRepository)
+                .tasklet(addPassesTasklet, transactionManager)
                 .build();
     }
 

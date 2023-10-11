@@ -7,8 +7,9 @@ import com.spring_batch.pass.repository.notification.NotificationEvent;
 import com.spring_batch.pass.repository.notification.NotificationModelMapper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.JpaItemWriter;
@@ -22,29 +23,33 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 
 @Configuration
-public class SendNotificationBeforeClassJobConfig {
+public class SendNotificationBeforeClassJobConfig  {
     private final int CHUNK_SIZE = 10;
 
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
+    private final JobRepository jobRepository;
     private final EntityManagerFactory entityManagerFactory;
     private final SendNotificationItemWriter sendNotificationItemWriter;
+    private final PlatformTransactionManager transactionManager;
 
-    public SendNotificationBeforeClassJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, EntityManagerFactory entityManagerFactory, SendNotificationItemWriter sendNotificationItemWriter) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
+
+    public SendNotificationBeforeClassJobConfig(JobRepository jobRepository, EntityManagerFactory entityManagerFactory, SendNotificationItemWriter sendNotificationItemWriter, PlatformTransactionManager transactionManager) {
+        this.jobRepository = jobRepository;
         this.entityManagerFactory = entityManagerFactory;
         this.sendNotificationItemWriter = sendNotificationItemWriter;
+        this.transactionManager = transactionManager;
     }
+
 
     @Bean
     public Job sendNotificationBeforeClassJob() {
-        return this.jobBuilderFactory.get("sendNotificationBeforeClassJob")
+        return new JobBuilder("sendNotificationBeforeClassJob", jobRepository)
                 .start(addNotificationStep())
                 .next(sendNotificationStep())
                 .build();
@@ -52,14 +57,14 @@ public class SendNotificationBeforeClassJobConfig {
 
     @Bean
     public Step addNotificationStep() {
-        return this.stepBuilderFactory.get("addNotificationStep")
-                .<BookingEntity, NotificationEntity>chunk(CHUNK_SIZE)
+        return new StepBuilder("addNotificationStep", jobRepository)
+                .<BookingEntity, NotificationEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(addNotificationItemReader())
                 .processor(addNotificationItemProcessor())
                 .writer(addNotificationItemWriter())
                 .build();
-
     }
+
 
     /**
      * JpaPagingItemReader: JPA에서 사용하는 페이징 기법입니다.
@@ -95,11 +100,11 @@ public class SendNotificationBeforeClassJobConfig {
      */
     @Bean
     public Step sendNotificationStep() {
-        return this.stepBuilderFactory.get("sendNotificationStep")
-                .<NotificationEntity, NotificationEntity>chunk(CHUNK_SIZE)
+        return new StepBuilder("sendNotificationStep", jobRepository)
+                .<NotificationEntity, NotificationEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(sendNotificationItemReader())
                 .writer(sendNotificationItemWriter)
-                .taskExecutor(new SimpleAsyncTaskExecutor()) // 가장 간단한 멀티쓰레드 TaskExecutor를 선언하였습니다.
+                .taskExecutor(new SimpleAsyncTaskExecutor())
                 .build();
     }
 

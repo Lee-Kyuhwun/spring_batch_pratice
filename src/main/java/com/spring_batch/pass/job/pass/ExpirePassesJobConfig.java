@@ -5,9 +5,10 @@ import com.spring_batch.pass.repository.pass.PassEntity;
 import com.spring_batch.pass.repository.pass.PassStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.JpaItemWriter;
@@ -16,7 +17,9 @@ import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.orm.jpa.JpaTransactionManager;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -25,22 +28,27 @@ public class ExpirePassesJobConfig {
 
     private final int CHUNK_SIZE = 5;
     //@EnableBatchProcessing로 인해 Bean으로 제공된 JobBuilderFactory, StepBuilderFactory를 주입받는다.
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
+
+    private final JobRepository jobRepository;
+    private final JpaTransactionManager transactionManager;
 
     private final EntityManagerFactory entityManagerFactory; //JPA를 사용하기 위해 EntityManagerFactory를 주입받는다.
 
-    public ExpirePassesJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, EntityManagerFactory entityManagerFactory) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
+    public ExpirePassesJobConfig(JobRepository jobRepository, JpaTransactionManager transactionManager, EntityManagerFactory entityManagerFactory) {
+        this.jobRepository = jobRepository;
+        this.transactionManager = transactionManager;
         this.entityManagerFactory = entityManagerFactory;
     }
 
     @Bean
-    public Job expirePassesJob() {
-        return this.jobBuilderFactory.get("expirePassesJob") //Job 이름을 expirePassesJob로 지정한다.
-                .start(expirePassesStep()) //Job 실행시 최초로 실행될 Step을 지정한다.
-                .build(); //Job을 빌드한다.
+    public Job expirePassesJob(){
+        return new JobBuilder("expirePassesJob", jobRepository)
+                .start(expirePassesStep())
+                .build();
+
+        //        return this.jobBuilderFactory.get("expirePassesJob") //Job 이름을 expirePassesJob로 지정한다.
+//                .start(expirePassesStep()) //Job 실행시 최초로 실행될 Step을 지정한다.
+//                .build(); //Job을 빌드한다.
     }
 
 
@@ -51,12 +59,18 @@ public class ExpirePassesJobConfig {
     * */
     @Bean
     public Step expirePassesStep() {
-        return stepBuilderFactory.get("expirePassesStep")
-                .<PassEntity, PassEntity>chunk(CHUNK_SIZE)//첫번째 PassEntity는 Reader에서 반환할 타입, 두번째 PassEntity는 Writer에 파라미터로 넘어올 타입
+        return new StepBuilder("expirePassesStep",jobRepository)
+                .<PassEntity,PassEntity>chunk(CHUNK_SIZE,transactionManager)
                 .reader(expirePassesItemReader())
                 .processor(expirePassesItemProcessor())
                 .writer(expirePassesItemWriter())
                 .build();
+//        return stepBuilderFactory.get("expirePassesStep")
+//                .<PassEntity, PassEntity>chunk(CHUNK_SIZE)//첫번째 PassEntity는 Reader에서 반환할 타입, 두번째 PassEntity는 Writer에 파라미터로 넘어올 타입
+//                .reader(expirePassesItemReader())
+//                .processor(expirePassesItemProcessor())
+//                .writer(expirePassesItemWriter())
+//                .build();
     }
 
 

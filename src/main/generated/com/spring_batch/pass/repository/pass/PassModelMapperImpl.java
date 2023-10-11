@@ -4,7 +4,7 @@ import javax.annotation.processing.Generated;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2023-10-10T16:24:00+0900",
+    date = "2023-10-11T14:14:25+0900",
     comments = "version: 1.5.2.Final, compiler: javac, environment: Java 17.0.8 (GraalVM Community)"
 )
 public class PassModelMapperImpl implements PassModelMapper {

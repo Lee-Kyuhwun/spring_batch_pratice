@@ -6,11 +6,15 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
-
   batch:
-    jdbc:
-      initialize-schema: always
+    job:
+      name: ${job.name:NONE} #job name을 파라미터로 받기 위함
+      enabled: true
 
 kakaotalk:
   host: https://kapi.kakao.com
   token: 466678c82f31549a40ee144a6f962960
+
+logging:
+  level:
+    org.springframework.batch: DEBUG
