@@ -1,3 +1,4 @@
+/*
 package com.spring_batch.pass.job.notification;
 
 import com.spring_batch.pass.repository.booking.BookingEntity;
@@ -5,6 +6,8 @@ import com.spring_batch.pass.repository.booking.BookingStatus;
 import com.spring_batch.pass.repository.notification.NotificationEntity;
 import com.spring_batch.pass.repository.notification.NotificationEvent;
 import com.spring_batch.pass.repository.notification.NotificationModelMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -30,6 +33,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 @Configuration
+@Slf4j
+@RequiredArgsConstructor
 public class SendNotificationBeforeClassJobConfig  {
     private final int CHUNK_SIZE = 10;
 
@@ -39,16 +44,10 @@ public class SendNotificationBeforeClassJobConfig  {
     private final PlatformTransactionManager transactionManager;
 
 
-    public SendNotificationBeforeClassJobConfig(JobRepository jobRepository, EntityManagerFactory entityManagerFactory, SendNotificationItemWriter sendNotificationItemWriter, PlatformTransactionManager transactionManager) {
-        this.jobRepository = jobRepository;
-        this.entityManagerFactory = entityManagerFactory;
-        this.sendNotificationItemWriter = sendNotificationItemWriter;
-        this.transactionManager = transactionManager;
-    }
-
 
     @Bean
     public Job sendNotificationBeforeClassJob() {
+        log.info("Initializing sendNotificationBeforeClassJob...");
         return new JobBuilder("sendNotificationBeforeClassJob", jobRepository)
                 .start(addNotificationStep())
                 .next(sendNotificationStep())
@@ -57,6 +56,7 @@ public class SendNotificationBeforeClassJobConfig  {
 
     @Bean
     public Step addNotificationStep() {
+        log.info("Initializing addNotificationStep...");
         return new StepBuilder("addNotificationStep", jobRepository)
                 .<BookingEntity, NotificationEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(addNotificationItemReader())
@@ -65,41 +65,38 @@ public class SendNotificationBeforeClassJobConfig  {
                 .build();
     }
 
-
-    /**
-     * JpaPagingItemReader: JPA에서 사용하는 페이징 기법입니다.
-     * 쿼리 당 pageSize만큼 가져오며 다른 PagingItemReader와 마찬가지로 Thread-safe 합니다.
-     */
     @Bean
     public JpaPagingItemReader<BookingEntity> addNotificationItemReader() {
+        log.info("Setting up addNotificationItemReader...");
         return new JpaPagingItemReaderBuilder<BookingEntity>()
                 .name("addNotificationItemReader")
                 .entityManagerFactory(entityManagerFactory)
-                // pageSize: 한 번에 조회할 row 수
                 .pageSize(CHUNK_SIZE)
-                // 상태(status)가 준비중이며, 시작일시(startedAt)이 10분 후 시작하는 예약이 알람 대상이 됩니다.
-               .queryString("select b from BookingEntity b join fetch b.userEntity where b.status = :status and b.startedAt <= :startedAt order by b.bookingSeq")
+                .queryString("select b from BookingEntity b join fetch b.userEntity where b.status = :status and b.startedAt <= :startedAt order by b.bookingSeq")
                 .parameterValues(Map.of("status", BookingStatus.READY, "startedAt", LocalDateTime.now().plusMinutes(10)))
                 .build();
     }
 
     @Bean
     public ItemProcessor<BookingEntity, NotificationEntity> addNotificationItemProcessor() {
-        return bookingEntity -> NotificationModelMapper.INSTANCE.toNotificationEntity(bookingEntity, NotificationEvent.BEFORE_CLASS);
+        log.info("Setting up addNotificationItemProcessor...");
+        return bookingEntity -> {
+            log.info("Processing bookingEntity with");  // Assuming there's a getId() method in BookingEntity
+            return NotificationModelMapper.INSTANCE.toNotificationEntity(bookingEntity, NotificationEvent.BEFORE_CLASS);
+        };
     }
 
     @Bean
     public JpaItemWriter<NotificationEntity> addNotificationItemWriter() {
+        log.info("Setting up addNotificationItemWriter...");
         return new JpaItemWriterBuilder<NotificationEntity>()
                 .entityManagerFactory(entityManagerFactory)
                 .build();
     }
 
-    /**
-     * reader는 synchrosized로 순차적으로 실행되지만 writer는 multi-thread 로 동작합니다.
-     */
     @Bean
     public Step sendNotificationStep() {
+        log.info("Initializing sendNotificationStep...");
         return new StepBuilder("sendNotificationStep", jobRepository)
                 .<NotificationEntity, NotificationEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(sendNotificationItemReader())
@@ -108,24 +105,19 @@ public class SendNotificationBeforeClassJobConfig  {
                 .build();
     }
 
-    /**
-     * SynchronizedItemStreamReader: multi-thread 환경에서 reader와 writer는 thread-safe 해야합니다.
-     * Cursor 기법의 ItemReader는 thread-safe하지 않아 Paging 기법을 사용하거나 synchronized 를 선언하여 순차적으로 수행해야합니다.
-     */
     @Bean
     public SynchronizedItemStreamReader<NotificationEntity> sendNotificationItemReader() {
+        log.info("Setting up sendNotificationItemReader...");
         JpaCursorItemReader<NotificationEntity> itemReader = new JpaCursorItemReaderBuilder<NotificationEntity>()
-                .name("sendNotificationItemReader") // reader의 이름을 지정합니다.
-                .entityManagerFactory(entityManagerFactory) // JpaCursorItemReader는 EntityManagerFactory를 주입받아야 합니다.
-                // 이벤트(event)가 수업 전이며, 발송 여부(sent)가 미발송인 알람이 조회 대상이 됩니다.
+                .name("sendNotificationItemReader")
+                .entityManagerFactory(entityManagerFactory)
                 .queryString("select n from NotificationEntity n where n.event = :event and n.sent = :sent")
-                .parameterValues(Map.of("event", NotificationEvent.BEFORE_CLASS, "sent", false)) // 파라미터를 설정합니다.
+                .parameterValues(Map.of("event", NotificationEvent.BEFORE_CLASS, "sent", false))
                 .build();
 
         return new SynchronizedItemStreamReaderBuilder<NotificationEntity>()
-                .delegate(itemReader) // delegate: SynchronizedItemStreamReader의 대상이 되는 reader를 설정합니다.
+                .delegate(itemReader)
                 .build();
-
     }
-
 }
+*/

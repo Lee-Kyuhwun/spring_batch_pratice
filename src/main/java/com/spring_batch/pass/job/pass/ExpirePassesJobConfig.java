@@ -3,10 +3,17 @@ package com.spring_batch.pass.job.pass;
 
 import com.spring_batch.pass.repository.pass.PassEntity;
 import com.spring_batch.pass.repository.pass.PassStatus;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
@@ -14,104 +21,80 @@ import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.persistence.EntityManagerFactory;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 
+@Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class ExpirePassesJobConfig {
 
     private final int CHUNK_SIZE = 5;
-    //@EnableBatchProcessing로 인해 Bean으로 제공된 JobBuilderFactory, StepBuilderFactory를 주입받는다.
 
-    private final JobRepository jobRepository;
-    private final JpaTransactionManager transactionManager;
+    private final EntityManagerFactory entityManagerFactory;
 
-    private final EntityManagerFactory entityManagerFactory; //JPA를 사용하기 위해 EntityManagerFactory를 주입받는다.
-
-    public ExpirePassesJobConfig(JobRepository jobRepository, JpaTransactionManager transactionManager, EntityManagerFactory entityManagerFactory) {
-        this.jobRepository = jobRepository;
-        this.transactionManager = transactionManager;
-        this.entityManagerFactory = entityManagerFactory;
-    }
 
     @Bean
-    public Job expirePassesJob(){
+    public Job expirePassesJob(@Qualifier("expirePassesStep") Step expirePassesStep, JobRepository jobRepository) {
+        log.info("Creating expirePassesJob bean");
+        System.out.println("expirePassesJob complete");
         return new JobBuilder("expirePassesJob", jobRepository)
-                .start(expirePassesStep())
+                .start(expirePassesStep)
                 .build();
-
-        //        return this.jobBuilderFactory.get("expirePassesJob") //Job 이름을 expirePassesJob로 지정한다.
-//                .start(expirePassesStep()) //Job 실행시 최초로 실행될 Step을 지정한다.
-//                .build(); //Job을 빌드한다.
     }
-
-
-    /*
-    * step은 get으로 이름을 정의하고 청크의 input,output을 설정하고
-    * 청크사이즈를 설정한다.
-    * 그 이후에는 reader, processor, writer를 정의하면 된다.
-    * */
+    @JobScope//JobScope는 Job이 실행될 때마다 Bean이 생성됩니다.
     @Bean
-    public Step expirePassesStep() {
-        return new StepBuilder("expirePassesStep",jobRepository)
-                .<PassEntity,PassEntity>chunk(CHUNK_SIZE,transactionManager)
+    public Step expirePassesStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        log.info("Creating expirePassesStep bean");
+        System.out.println("expirePassesStep complete");
+        return new StepBuilder("expirePassesStep", jobRepository)
+                .<PassEntity, PassEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(expirePassesItemReader())
                 .processor(expirePassesItemProcessor())
                 .writer(expirePassesItemWriter())
                 .build();
-//        return stepBuilderFactory.get("expirePassesStep")
-//                .<PassEntity, PassEntity>chunk(CHUNK_SIZE)//첫번째 PassEntity는 Reader에서 반환할 타입, 두번째 PassEntity는 Writer에 파라미터로 넘어올 타입
-//                .reader(expirePassesItemReader())
-//                .processor(expirePassesItemProcessor())
-//                .writer(expirePassesItemWriter())
-//                .build();
     }
 
-
-    /*
-    * JpaCursorItemReader: JpaPagingItemReader와 유사하지만, 페이징 처리를 하지 않고 Cursor를 사용하여 데이터를 읽어온다.
-    * 페이징 기법보다 높은 성능을 보장하지만, Cursor를 사용하기 때문에 트랜잭션 범위가 Reader에서 Writer까지 전달되어야 한다.
-    * 데이터 변경에 무관한 조회가 가능하다.
-    * */
-
     @Bean
-    @StepScope // Step의 실행시점에 Bean이 생성되도록 한다.
+    @StepScope
     public JpaCursorItemReader<PassEntity> expirePassesItemReader() {
+        log.info("Creating expirePassesItemReader bean");
+        System.out.println("expirePassesItemReader complete");
         return new JpaCursorItemReaderBuilder<PassEntity>()
                 .name("expirePassesItemReader")
-                .entityManagerFactory(entityManagerFactory) //JpaCursorItemReader는 EntityManagerFactory를 주입받아야 한다. 왜 주입받냐면 Reader가 실행될 때마다 EntityManager를 생성하기 때문이다.
-                .queryString("SELECT p FROM PassEntity p WHERE p.status = :status AND p.endedAt < :endedAt") //상태가 진행중일때 만료일이 현재일보다 이전인 데이터를 조회한다.
+                .entityManagerFactory(entityManagerFactory)
+                .queryString("SELECT p FROM PassEntity p WHERE p.status = :status AND p.endedAt < :endedAt")
                 .parameterValues(Map.of("status", PassStatus.PROGRESSED, "endedAt", LocalDateTime.now()))
-                // 커서를 사용한 이유는 데이터에서 status인것들만 읽어와서  처리를 하게 되는데 그렇게 되면
-                // 페이징을 사용할 경우에는 누락이 될 수 있다. 그래서 무결성조회가 가능한 커서를 사용한다.
                 .build();
     }
 
-
-
     @Bean
-    public ItemProcessor<PassEntity,PassEntity> expirePassesItemProcessor() {
-
+    public ItemProcessor<PassEntity, PassEntity> expirePassesItemProcessor() {
+        log.info("Creating expirePassesItemProcessor bean");
+        System.out.println("expirePassesItemProcessor complete");
         return passEntity -> {
+            log.debug("Processing passEntity for expiration: {}", passEntity);
             passEntity.setStatus(PassStatus.EXPIRED);
             return passEntity;
         };
-
     }
 
     @Bean
     public JpaItemWriter<PassEntity> expirePassesItemWriter() {
-
+        log.info("Creating expirePassesItemWriter bean");
+        System.out.println("expirePassesItemWriter complete");
         return new JpaItemWriterBuilder<PassEntity>()
                 .entityManagerFactory(entityManagerFactory)
                 .build();
     }
-
-
 }

@@ -1,9 +1,11 @@
+/*
 package com.spring_batch.pass.job.statistics;
 
 import com.spring_batch.pass.repository.booking.BookingEntity;
 import com.spring_batch.pass.repository.statistics.StatisticsEntity;
 import com.spring_batch.pass.repository.statistics.StatisticsRepository;
 import com.spring_batch.pass.util.LocalDateTimeUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -32,6 +34,7 @@ import java.util.Map;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class MakeStatisticsJobConfig {
     private final int CHUNK_SIZE = 10;
 
@@ -44,17 +47,11 @@ public class MakeStatisticsJobConfig {
     // `PlatformTransactionManager`를 주입받기 위한 코드 추가
     private final PlatformTransactionManager transactionManager;
 
-    public MakeStatisticsJobConfig(EntityManagerFactory entityManagerFactory, StatisticsRepository statisticsRepository, MakeDailyStatisticsTasklet makeDailyStatisticsTasklet, MakeWeeklyStatisticsTasklet makeWeeklyStatisticsTasklet, JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        this.entityManagerFactory = entityManagerFactory;
-        this.statisticsRepository = statisticsRepository;
-        this.makeDailyStatisticsTasklet = makeDailyStatisticsTasklet;
-        this.makeWeeklyStatisticsTasklet = makeWeeklyStatisticsTasklet;
-        this.jobRepository = jobRepository;
-        this.transactionManager = transactionManager; // 초기화 코드 추가
-    }
 
     @Bean
     public Job makeStatisticsJob() {
+        log.info("Initializing makeStatisticsJob...");
+
         Flow addStatisticsFlow = new FlowBuilder<Flow>("addStatisticsFlow")
                 .start(addStatisticsStep())
                 .build();
@@ -81,6 +78,7 @@ public class MakeStatisticsJobConfig {
 
     @Bean
     public Step addStatisticsStep() {
+        log.info("Initializing addStatisticsStep...");
         return new StepBuilder("addStatisticsStep",jobRepository)
                 .<BookingEntity, BookingEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(addStatisticsItemReader(null, null))
@@ -89,18 +87,16 @@ public class MakeStatisticsJobConfig {
                 .build();
     }
 
-
     @Bean
-    @StepScope // Step의 실행 시점에 JobParameter를 받아 처리합니다.
-    // jobparameter란 job을 실행할 때 외부에서 받을 수 있는 파라미터를 말한다.
+    @StepScope
     public JpaCursorItemReader<BookingEntity> addStatisticsItemReader(@Value("#{jobParameters[from]}") String fromString, @Value("#{jobParameters[to]}") String toString) {
+        log.info("Setting up addStatisticsItemReader...");
         final LocalDateTime from = LocalDateTimeUtils.parse(fromString);
         final LocalDateTime to = LocalDateTimeUtils.parse(toString);
 
         return new JpaCursorItemReaderBuilder<BookingEntity>()
                 .name("usePassesItemReader")
                 .entityManagerFactory(entityManagerFactory)
-                // JobParameter를 받아 종료 일시(endedAt) 기준으로 통계 대상 예약(Booking)을 조회합니다.
                 .queryString("select b from BookingEntity b where b.endedAt between :from and :to")
                 .parameterValues(Map.of("from", from, "to", to))
                 .build();
@@ -108,6 +104,7 @@ public class MakeStatisticsJobConfig {
 
     @Bean
     public ItemWriter<BookingEntity> addStatisticsItemWriter() {
+        log.info("Setting up addStatisticsItemWriter...");
         return bookingEntities -> {
             Map<LocalDateTime, StatisticsEntity> statisticsEntityMap = new LinkedHashMap<>();
 
@@ -117,22 +114,20 @@ public class MakeStatisticsJobConfig {
 
                 if (statisticsEntity == null) {
                     statisticsEntityMap.put(statisticsAt, StatisticsEntity.create(bookingEntity));
-
                 } else {
                     statisticsEntity.add(bookingEntity);
-
                 }
 
             }
             final List<StatisticsEntity> statisticsEntities = new ArrayList<>(statisticsEntityMap.values());
             statisticsRepository.saveAll(statisticsEntities);
             log.info("### addStatisticsStep 종료");
-
         };
     }
 
     @Bean
     public Step makeDailyStatisticsStep() {
+        log.info("Initializing makeDailyStatisticsStep...");
         return new StepBuilder("makeDailyStatisticsStep",jobRepository)
                 .tasklet(makeDailyStatisticsTasklet, transactionManager)
                 .transactionManager(transactionManager)
@@ -141,10 +136,10 @@ public class MakeStatisticsJobConfig {
 
     @Bean
     public Step makeWeeklyStatisticsStep() {
+        log.info("Initializing makeWeeklyStatisticsStep...");
         return new StepBuilder("makeWeeklyStatisticsStep",jobRepository)
                 .tasklet(makeWeeklyStatisticsTasklet, transactionManager)
                 .transactionManager(transactionManager)
                 .build();
     }
-
-}
+}*/
