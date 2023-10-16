@@ -1,4 +1,3 @@
-/*
 package com.spring_batch.pass.job.notification;
 
 import com.spring_batch.pass.repository.booking.BookingEntity;
@@ -120,4 +119,3 @@ public class SendNotificationBeforeClassJobConfig  {
                 .build();
     }
 }
-*/

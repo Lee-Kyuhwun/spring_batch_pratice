@@ -1,4 +1,3 @@
-/*
 package com.spring_batch.pass.job.statistics;
 
 import com.spring_batch.pass.repository.booking.BookingEntity;
@@ -142,4 +141,4 @@ public class MakeStatisticsJobConfig {
                 .transactionManager(transactionManager)
                 .build();
     }
-}*/
+}

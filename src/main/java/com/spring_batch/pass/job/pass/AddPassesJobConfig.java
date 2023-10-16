@@ -1,4 +1,3 @@
-/*
 package com.spring_batch.pass.job.pass;
 
 
@@ -26,7 +25,8 @@ import java.security.cert.PolicyQualifierInfo;
 @Slf4j
 public class AddPassesJobConfig {
 
-    private final AddPassesTasklet addPassesTasklet;
+
+    private final   AddPassesTasklet addPassesTasklet;
 
 
     @Bean
@@ -47,4 +47,3 @@ public class AddPassesJobConfig {
     }
 
 }
-*/

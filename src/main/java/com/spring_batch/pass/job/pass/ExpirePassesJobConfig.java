@@ -47,7 +47,6 @@ public class ExpirePassesJobConfig {
     @Bean
     public Job expirePassesJob(@Qualifier("expirePassesStep") Step expirePassesStep, JobRepository jobRepository) {
         log.info("Creating expirePassesJob bean");
-        System.out.println("expirePassesJob complete");
         return new JobBuilder("expirePassesJob", jobRepository)
                 .start(expirePassesStep)
                 .build();
@@ -56,7 +55,6 @@ public class ExpirePassesJobConfig {
     @Bean
     public Step expirePassesStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         log.info("Creating expirePassesStep bean");
-        System.out.println("expirePassesStep complete");
         return new StepBuilder("expirePassesStep", jobRepository)
                 .<PassEntity, PassEntity>chunk(CHUNK_SIZE, transactionManager)
                 .reader(expirePassesItemReader())

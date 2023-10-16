@@ -1,4 +1,3 @@
-/*
 package com.spring_batch.pass.job.pass;
 
 
@@ -120,4 +119,4 @@ public class UsePassesJobConfig {
             }
         };
     }
-}*/
+}
